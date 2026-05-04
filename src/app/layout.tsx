@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import "./globals.css";
 
@@ -10,13 +10,15 @@ import { Toaster } from "sonner";
 
 import { DevModeSwitch } from "./components/layout/DevModeSwitch";
 
+export const viewport: Viewport = {
+  themeColor: "#062B55",
+};
+
 export const metadata: Metadata = {
   title: "Santos Cup",
   description: "Official Santos Cup Tournament App",
 
   manifest: "/manifest.json",
-
-  themeColor: "#062B55",
 
   appleWebApp: {
     capable: true,

@@ -45,3 +45,5 @@ export interface StandingRow {
   goalsAgainst: number;
   points: number;
 }
+
+export type { PaymentStatus };

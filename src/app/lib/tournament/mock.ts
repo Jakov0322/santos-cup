@@ -2,8 +2,9 @@ import {
   Match,
   PaymentStatus,
   Player,
-  Team,
+  Team
 } from "@/app/types/database";
+import { PAYMENT_STATUSES, MATCH_STATUSES, PACKAGE_TYPES } from "../constants/tournament";
 
 export type MockPaymentMethod = "satispay" | "paypal" | "bank_transfer";
 
@@ -24,8 +25,8 @@ export const mockTeams: Team[] = [
     captainName: "Luca Bianchi",
     captainEmail: "luca@santos.test",
     captainPhone: "+39 333 1111111",
-    packageType: "full",
-    paymentStatus: "confirmed",
+    packageType: PACKAGE_TYPES.FULL,
+    paymentStatus: PAYMENT_STATUSES.CONFIRMED,
   },
   {
     id: "team-2",
@@ -33,8 +34,8 @@ export const mockTeams: Team[] = [
     captainName: "Marco Verdi",
     captainEmail: "marco@sharks.test",
     captainPhone: "+39 333 2222222",
-    packageType: "lunch",
-    paymentStatus: "confirmed",
+    packageType: PACKAGE_TYPES.BASIC,
+    paymentStatus: PAYMENT_STATUSES.CONFIRMED,
   },
   {
     id: "team-3",
@@ -42,8 +43,8 @@ export const mockTeams: Team[] = [
     captainName: "Davide Neri",
     captainEmail: "davide@amigos.test",
     captainPhone: "+39 333 3333333",
-    packageType: "basic",
-    paymentStatus: "receipt_uploaded",
+    packageType: PACKAGE_TYPES.BASIC,
+    paymentStatus: PAYMENT_STATUSES.RECEIPT_UPLOADED,
   },
   {
     id: "team-4",
@@ -51,8 +52,8 @@ export const mockTeams: Team[] = [
     captainName: "Andrea Gallo",
     captainEmail: "andrea@golden.test",
     captainPhone: "+39 333 4444444",
-    packageType: "full",
-    paymentStatus: "pending",
+    packageType: PACKAGE_TYPES.FULL,
+    paymentStatus: PAYMENT_STATUSES.PENDING,
   },
 ];
 
@@ -89,7 +90,7 @@ export const mockRegistrations: MockRegistration[] = [
     teamId: "team-1",
     selectedPackage: "full",
     paymentMethod: "satispay",
-    paymentStatus: "confirmed",
+    paymentStatus: PAYMENT_STATUSES.CONFIRMED,
     receiptUrl: "/mock/receipt-santos.png",
     createdAt: "2026-05-01T10:00:00.000Z",
   },
@@ -98,7 +99,7 @@ export const mockRegistrations: MockRegistration[] = [
     teamId: "team-2",
     selectedPackage: "lunch",
     paymentMethod: "paypal",
-    paymentStatus: "confirmed",
+    paymentStatus: PAYMENT_STATUSES.CONFIRMED,
     receiptUrl: "/mock/receipt-sharks.png",
     createdAt: "2026-05-01T10:20:00.000Z",
   },
@@ -107,7 +108,7 @@ export const mockRegistrations: MockRegistration[] = [
     teamId: "team-3",
     selectedPackage: "basic",
     paymentMethod: "bank_transfer",
-    paymentStatus: "receipt_uploaded",
+    paymentStatus: PAYMENT_STATUSES.RECEIPT_UPLOADED,
     receiptUrl: "/mock/receipt-amigos.pdf",
     createdAt: "2026-05-01T11:00:00.000Z",
   },
@@ -116,7 +117,7 @@ export const mockRegistrations: MockRegistration[] = [
     teamId: "team-4",
     selectedPackage: "full",
     paymentMethod: "satispay",
-    paymentStatus: "pending",
+    paymentStatus: PAYMENT_STATUSES.PENDING,
     createdAt: "2026-05-01T11:30:00.000Z",
   },
 ];
@@ -130,7 +131,7 @@ export const mockTournamentMatches: Match[] = [
     awayScore: 1,
     field: 1,
     startsAt: "10:00",
-    status: "live",
+    status: MATCH_STATUSES.LIVE,
     phase: "Girone A",
   },
   {
@@ -141,7 +142,7 @@ export const mockTournamentMatches: Match[] = [
     awayScore: 0,
     field: 2,
     startsAt: "10:00",
-    status: "scheduled",
+    status: MATCH_STATUSES.SCHEDULED,
     phase: "Girone A",
   },
   {
@@ -152,7 +153,7 @@ export const mockTournamentMatches: Match[] = [
     awayScore: 0,
     field: 1,
     startsAt: "10:30",
-    status: "scheduled",
+    status: MATCH_STATUSES.SCHEDULED,
     phase: "Girone A",
   },
   {
