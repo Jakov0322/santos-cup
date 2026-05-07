@@ -5,15 +5,18 @@ import { AppShell } from "../components/layout/AppShell";
 import { AppHeader } from "../components/layout/AppHeader";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 import { GroupStandings } from "../components/tournament/GroupStandings";
-import { BracketMatchCard } from "../components/tournament/BracketMatchCard";
-import { getGroupStandings, getMatchesByPhase } from "../lib/api";
+import { getGroupStandings, getMatchesByPhase, getMatches, applyAutoStatus } from "../lib/api";
 import { StandingRow, Match } from "../types/database";
+
+type Tab = "gironi" | "fasi";
 
 export default function BracketPage() {
   const [groupA, setGroupA] = useState<StandingRow[]>([]);
   const [groupB, setGroupB] = useState<StandingRow[]>([]);
   const [knockoutMatches, setKnockoutMatches] = useState<Match[]>([]);
+  const [liveMatches, setLiveMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>("gironi");
 
   useEffect(() => {
     Promise.all([
@@ -22,11 +25,14 @@ export default function BracketPage() {
       getMatchesByPhase("quarter"),
       getMatchesByPhase("semi"),
       getMatchesByPhase("final"),
+      getMatches(),
     ])
-      .then(([a, b, quarters, semis, finals]) => {
+      .then(([a, b, quarters, semis, finals, allMatches]) => {
         setGroupA(a);
         setGroupB(b);
-        setKnockoutMatches([...quarters, ...semis, ...finals]);
+        const all = applyAutoStatus([...quarters, ...semis, ...finals]);
+        setKnockoutMatches(all);
+        setLiveMatches(applyAutoStatus(allMatches).filter((m) => m.status === "live"));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -40,68 +46,305 @@ export default function BracketPage() {
     );
   }
 
-  const quarters = knockoutMatches.filter((m) => m.phase === "quarter");
-  const semis = knockoutMatches.filter((m) => m.phase === "semi");
-  const finals = knockoutMatches.filter((m) => m.phase === "final");
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "gironi", label: "Gironi" },
+    { key: "fasi", label: "Fasi Finali" },
+  ];
 
   return (
     <AppShell>
       <AppHeader title="Tabellone" subtitle="Gironi e fase finale" />
 
-      <section className="space-y-6">
-        {/* Group Standings */}
-        <GroupStandings groupName="Girone A" rows={groupA} />
-        <GroupStandings groupName="Girone B" rows={groupB} />
+      {/* Tab switcher */}
+      <div className="mb-6 flex gap-2">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 rounded-full px-4 py-2 text-sm font-bold transition ${
+              tab === t.key
+                ? "bg-[#062B55] text-white"
+                : "border border-slate-200 bg-white text-[#062B55]"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Knockout phase info */}
-        <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-4">
-          <p className="text-sm font-semibold leading-6 text-[#062B55]">
-            Le prime 4 di ogni girone accedono ai quarti di finale.
-            Gli incroci sono: 1ª Girone A vs 4ª Girone B, 2ª A vs 3ª B,
-            1ª B vs 4ª A, 2ª B vs 3ª A.
-          </p>
+      {tab === "gironi" && (
+        <section className="space-y-6">
+          <GroupStandings groupName="Girone A" rows={groupA} liveMatches={liveMatches} />
+          <GroupStandings groupName="Girone B" rows={groupB} liveMatches={liveMatches} />
+
+          <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-4">
+            <p className="text-sm font-semibold leading-6 text-[#062B55]">
+              Le prime 4 di ogni girone accedono ai quarti di finale.
+              Gli incroci sono: 1ª Girone A vs 4ª Girone B, 2ª A vs 3ª B,
+              1ª B vs 4ª A, 2ª B vs 3ª A.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {tab === "fasi" && (
+        <BracketTree matches={knockoutMatches} />
+      )}
+    </AppShell>
+  );
+}
+
+/* ============================================================
+   Champions League–style bracket tree
+   ============================================================ */
+
+function BracketTree({ matches }: { matches: Match[] }) {
+  const quarters = matches.filter((m) => m.phase === "quarter");
+  const semis = matches.filter((m) => m.phase === "semi");
+  const finals = matches.filter((m) => m.phase === "final");
+
+  if (quarters.length === 0 && semis.length === 0 && finals.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
+        <p className="text-3xl">🏆</p>
+        <p className="mt-3 font-black text-[#062B55]">
+          Fase finale non ancora definita
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          I quarti verranno generati al termine della fase a gironi
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto pb-4">
+      <div className="flex min-w-[700px] items-center justify-center gap-0">
+        {/* Quarti column */}
+        <RoundColumn label="Quarti" matches={quarters} roundSize={4} />
+
+        {/* Connector QF → SF */}
+        <ConnectorLines count={4} />
+
+        {/* Semifinali column */}
+        <RoundColumn label="Semifinali" matches={semis} roundSize={2} />
+
+        {/* Connector SF → F */}
+        <ConnectorLines count={2} />
+
+        {/* Finale column */}
+        <RoundColumn label="Finale" matches={finals} roundSize={1} isFinal />
+      </div>
+    </div>
+  );
+}
+
+/* ---- Single round column ---- */
+function RoundColumn({
+  label,
+  matches,
+  roundSize,
+  isFinal = false,
+}: {
+  label: string;
+  matches: Match[];
+  roundSize: number;
+  isFinal?: boolean;
+}) {
+  // Pad to expected size with empty slots
+  const slots: (Match | null)[] = [];
+  for (let i = 0; i < roundSize; i++) {
+    slots.push(matches[i] ?? null);
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <span className="text-xs font-bold uppercase tracking-wider text-[#00C8E8]">
+        {label}
+      </span>
+      <div
+        className="flex flex-col justify-around"
+        style={{ gap: isFinal ? "0px" : roundSize === 2 ? "64px" : "16px" }}
+      >
+        {slots.map((m, i) => (
+          <BracketSlot key={m?.id ?? `empty-${i}`} match={m} isFinal={isFinal} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Single match slot in the bracket ---- */
+function BracketSlot({
+  match,
+  isFinal,
+}: {
+  match: Match | null;
+  isFinal: boolean;
+}) {
+  if (!match) {
+    return (
+      <div
+        className={`flex flex-col overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 ${
+          isFinal ? "w-44" : "w-36"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+          <span className="text-xs text-slate-400">TBD</span>
+          <span className="text-xs text-slate-300">-</span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2">
+          <span className="text-xs text-slate-400">TBD</span>
+          <span className="text-xs text-slate-300">-</span>
+        </div>
+      </div>
+    );
+  }
+
+  const homeName = match.home_team?.name ?? "TBD";
+  const awayName = match.away_team?.name ?? "TBD";
+  const isLive = match.status === "live";
+  const isFinished = match.status === "finished";
+  const hasScore = isLive || isFinished;
+
+  const homeWin = hasScore && match.home_score > match.away_score;
+  const awayWin = hasScore && match.away_score > match.home_score;
+
+  const borderColor = isLive
+    ? "border-green-400"
+    : isFinished
+      ? "border-slate-300"
+      : "border-slate-200";
+
+  return (
+    <a href={`/matches/${match.id}`} className="group">
+      <div
+        className={`flex flex-col overflow-hidden rounded-xl border-2 shadow-sm transition group-hover:border-[#00C8E8] ${borderColor} ${
+          isFinal ? "w-44" : "w-36"
+        } ${isFinal ? "ring-2 ring-yellow-300/50" : ""}`}
+      >
+        {/* Home row */}
+        <div
+          className={`flex items-center justify-between border-b px-3 py-2 ${
+            homeWin ? "bg-green-50" : "bg-white"
+          }`}
+        >
+          <span
+            className={`truncate text-xs font-bold ${
+              homeWin ? "text-green-700" : "text-[#062B55]"
+            }`}
+          >
+            {homeName}
+          </span>
+          <span
+            className={`ml-2 text-sm font-black ${
+              homeWin ? "text-green-700" : "text-[#062B55]"
+            }`}
+          >
+            {hasScore ? match.home_score : "-"}
+          </span>
         </div>
 
-        {/* Knockout Matches */}
-        {quarters.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-xl font-black text-[#062B55]">Quarti di finale</h2>
-            {quarters.map((match) => (
-              <BracketMatchCard key={match.id} match={match} />
-            ))}
-          </div>
-        )}
+        {/* Away row */}
+        <div
+          className={`flex items-center justify-between px-3 py-2 ${
+            awayWin ? "bg-green-50" : "bg-white"
+          }`}
+        >
+          <span
+            className={`truncate text-xs font-bold ${
+              awayWin ? "text-green-700" : "text-[#062B55]"
+            }`}
+          >
+            {awayName}
+          </span>
+          <span
+            className={`ml-2 text-sm font-black ${
+              awayWin ? "text-green-700" : "text-[#062B55]"
+            }`}
+          >
+            {hasScore ? match.away_score : "-"}
+          </span>
+        </div>
 
-        {semis.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-xl font-black text-[#062B55]">Semifinali</h2>
-            {semis.map((match) => (
-              <BracketMatchCard key={match.id} match={match} />
-            ))}
+        {/* Status strip */}
+        {isLive && (
+          <div className="flex items-center justify-center gap-1 bg-green-500 px-2 py-0.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+            <span className="text-[10px] font-bold text-white">LIVE</span>
           </div>
         )}
+        {isFinished && (
+          <div className="flex items-center justify-center bg-slate-100 px-2 py-0.5">
+            <span className="text-[10px] font-bold text-slate-500">FT</span>
+          </div>
+        )}
+      </div>
 
-        {finals.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-xl font-black text-[#062B55]">Finale</h2>
-            {finals.map((match) => (
-              <BracketMatchCard key={match.id} match={match} />
-            ))}
-          </div>
-        )}
+      {/* Trophy for final winner */}
+      {isFinal && isFinished && (
+        <div className="mt-2 text-center">
+          <span className="text-2xl">🏆</span>
+          <p className="text-xs font-black text-[#062B55]">
+            {homeWin ? homeName : awayWin ? awayName : "Pareggio"}
+          </p>
+        </div>
+      )}
+    </a>
+  );
+}
 
-        {knockoutMatches.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-            <p className="text-3xl">🏆</p>
-            <p className="mt-3 font-black text-[#062B55]">
-              Fase finale non ancora definita
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              I quarti verranno generati al termine della fase a gironi
-            </p>
-          </div>
-        )}
-      </section>
-    </AppShell>
+/* ---- SVG connector lines between rounds ---- */
+function ConnectorLines({ count }: { count: number }) {
+  // Draws bracket-style connector lines
+  // count = number of matches in LEFT column (pairs merge into right column)
+  const h = count === 4 ? 320 : count === 2 ? 240 : 120;
+  const w = 32;
+
+  if (count <= 1) {
+    return (
+      <div className="flex items-center" style={{ width: w, height: h }}>
+        <svg width={w} height={h} className="text-slate-300">
+          <line x1="0" y1={h / 2} x2={w} y2={h / 2} stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </div>
+    );
+  }
+
+  const pairCount = Math.ceil(count / 2);
+  const segH = h / count; // vertical space per source match
+  const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+
+  for (let p = 0; p < pairCount; p++) {
+    const topY = segH * (p * 2) + segH / 2;
+    const botY = segH * (p * 2 + 1) + segH / 2;
+    const midY = (topY + botY) / 2;
+
+    // Horizontal from top match
+    lines.push({ x1: 0, y1: topY, x2: w / 2, y2: topY });
+    // Horizontal from bottom match
+    lines.push({ x1: 0, y1: botY, x2: w / 2, y2: botY });
+    // Vertical connecting them
+    lines.push({ x1: w / 2, y1: topY, x2: w / 2, y2: botY });
+    // Horizontal to next round
+    lines.push({ x1: w / 2, y1: midY, x2: w, y2: midY });
+  }
+
+  return (
+    <div className="flex items-center" style={{ width: w, height: h }}>
+      <svg width={w} height={h} className="text-slate-300">
+        {lines.map((l, i) => (
+          <line
+            key={i}
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+        ))}
+      </svg>
+    </div>
   );
 }

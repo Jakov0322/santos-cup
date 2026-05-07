@@ -13,6 +13,7 @@ import {
   getMatchesByTeam,
   getGroupStandings,
   getTeamStats,
+  applyAutoStatus,
 } from "@/app/lib/api";
 import { Team, Player, Match, StandingRow, PlayerStats } from "@/app/types/database";
 
@@ -47,7 +48,7 @@ export default function TeamDetailPage() {
       ]);
 
       setPlayers(p);
-      setMatches(m);
+      setMatches(applyAutoStatus(m));
       setStandings(s);
       setStats(st);
       setLoading(false);
@@ -115,7 +116,7 @@ export default function TeamDetailPage() {
 
         {/* Tab Content */}
         {tab === "torneo" && (
-          <TorneoTab standings={standings} stats={stats} teamId={team.id} />
+          <TorneoTab standings={standings} stats={stats} teamId={team.id} liveMatches={matches.filter((m) => m.status === "live")} />
         )}
         {tab === "calendario" && <CalendarioTab matches={matches} />}
         {tab === "rosa" && <RosaTab players={players} stats={stats} />}
@@ -132,14 +133,16 @@ function TorneoTab({
   standings,
   stats,
   teamId,
+  liveMatches,
 }: {
   standings: StandingRow[];
   stats: PlayerStats[];
   teamId: string;
+  liveMatches: Match[];
 }) {
   const teamStanding = standings.find((s) => s.team.id === teamId);
   const totalGoals = stats.reduce((acc, s) => acc + s.goals, 0);
-  const totalAssists = stats.reduce((acc, s) => acc + s.assists, 0);
+  const totalMvp = stats.reduce((acc, s) => acc + s.mvp_awards, 0);
 
   return (
     <div className="space-y-5">
@@ -155,8 +158,8 @@ function TorneoTab({
             <p className="text-xs text-slate-500">Gol</p>
           </div>
           <div className="rounded-2xl bg-white p-4 text-center shadow-sm border border-slate-200">
-            <p className="text-2xl font-black text-[#062B55]">{totalAssists}</p>
-            <p className="text-xs text-slate-500">Assist</p>
+            <p className="text-2xl font-black text-[#062B55]">{totalMvp}</p>
+            <p className="text-xs text-slate-500">MVP</p>
           </div>
         </div>
       )}
@@ -165,6 +168,7 @@ function TorneoTab({
       <GroupStandings
         groupName={`Girone ${standings[0]?.team.group_name ?? ""}`}
         rows={standings}
+        liveMatches={liveMatches}
       />
     </div>
   );
@@ -264,10 +268,6 @@ function RosaTab({ players, stats }: { players: Player[]; stats: PlayerStats[] }
                       <div>
                         <p className="font-black text-[#062B55]">{pStats?.goals ?? 0}</p>
                         <p className="text-slate-500">Gol</p>
-                      </div>
-                      <div>
-                        <p className="font-black text-[#062B55]">{pStats?.assists ?? 0}</p>
-                        <p className="text-slate-500">Assist</p>
                       </div>
                       <div>
                         <p className="font-black text-[#062B55]">{pStats?.mvp_awards ?? 0}</p>

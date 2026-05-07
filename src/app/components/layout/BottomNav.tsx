@@ -1,5 +1,10 @@
 const navItems = [
   {
+    label: "Home",
+    href: "/",
+    icon: "🏠",
+  },
+  {
     label: "Partite",
     href: "/matches",
     icon: "⚽",
@@ -24,7 +29,7 @@ const navItems = [
 export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/80 bg-white/95 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-md grid-cols-4">
+      <div className="mx-auto grid max-w-md grid-cols-5">
         {navItems.map((item) => (
           <a
             key={item.href}

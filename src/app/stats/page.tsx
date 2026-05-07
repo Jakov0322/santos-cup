@@ -4,23 +4,21 @@ import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { AppHeader } from "../components/layout/AppHeader";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
-import { getTopScorers, getTopAssists, getTopMVP } from "../lib/api";
+import { getTopScorers, getTopMVP } from "../lib/api";
 import { PlayerStats } from "../types/database";
 
-type StatsTab = "marcatori" | "assist" | "mvp";
+type StatsTab = "marcatori" | "mvp";
 
 export default function StatsPage() {
   const [scorers, setScorers] = useState<PlayerStats[]>([]);
-  const [assists, setAssists] = useState<PlayerStats[]>([]);
   const [mvps, setMvps] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<StatsTab>("marcatori");
 
   useEffect(() => {
-    Promise.all([getTopScorers(), getTopAssists(), getTopMVP()])
-      .then(([s, a, m]) => {
+    Promise.all([getTopScorers(), getTopMVP()])
+      .then(([s, m]) => {
         setScorers(s);
-        setAssists(a);
         setMvps(m);
       })
       .finally(() => setLoading(false));
@@ -28,16 +26,13 @@ export default function StatsPage() {
 
   const tabs: { key: StatsTab; label: string }[] = [
     { key: "marcatori", label: "Marcatori" },
-    { key: "assist", label: "Assistmen" },
     { key: "mvp", label: "MVP" },
   ];
 
-  const currentData =
-    tab === "marcatori" ? scorers : tab === "assist" ? assists : mvps;
-
-  const statLabel = tab === "marcatori" ? "Gol" : tab === "assist" ? "Assist" : "MVP";
+  const currentData = tab === "marcatori" ? scorers : mvps;
+  const statLabel = tab === "marcatori" ? "Gol" : "MVP";
   const getStatValue = (s: PlayerStats) =>
-    tab === "marcatori" ? s.goals : tab === "assist" ? s.assists : s.mvp_awards;
+    tab === "marcatori" ? s.goals : s.mvp_awards;
 
   return (
     <AppShell>

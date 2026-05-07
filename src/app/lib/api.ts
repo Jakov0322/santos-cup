@@ -1,5 +1,30 @@
 import { supabase } from "@/app/lib/supabase/client";
-import { Team, Player, Match, MatchEvent, StandingRow, PlayerStats } from "@/app/types/database";
+import { Team, Player, Match, MatchEvent, MvpNomination, MvpVote, StandingRow, PlayerStats } from "@/app/types/database";
+
+const MATCH_DURATION_MINUTES = 30;
+
+// ============================================
+// TIME-BASED STATUS
+// ============================================
+
+export function computeMatchStatus(match: Match): Match {
+  const now = new Date();
+  const start = new Date(match.starts_at);
+  const end = new Date(start.getTime() + MATCH_DURATION_MINUTES * 60 * 1000);
+
+  let status = match.status;
+  if (now >= start && now < end && match.status !== "finished") {
+    status = "live";
+  } else if (now >= end && match.status !== "finished") {
+    status = "finished";
+  }
+
+  return { ...match, status };
+}
+
+export function applyAutoStatus(matches: Match[]): Match[] {
+  return matches.map(computeMatchStatus);
+}
 
 // ============================================
 // TEAMS
@@ -286,6 +311,16 @@ export async function getTopMVP(limit = 20): Promise<PlayerStats[]> {
   return stats.filter((s) => s.mvp_awards > 0).sort((a, b) => b.mvp_awards - a.mvp_awards).slice(0, limit);
 }
 
+export async function getTopYellowCards(limit = 20): Promise<PlayerStats[]> {
+  const stats = await getPlayerStats();
+  return stats.filter((s) => s.yellow_cards > 0).sort((a, b) => b.yellow_cards - a.yellow_cards).slice(0, limit);
+}
+
+export async function getTopRedCards(limit = 20): Promise<PlayerStats[]> {
+  const stats = await getPlayerStats();
+  return stats.filter((s) => s.red_cards > 0).sort((a, b) => b.red_cards - a.red_cards).slice(0, limit);
+}
+
 export async function getTeamStats(teamId: string): Promise<PlayerStats[]> {
   const { data: events, error } = await supabase
     .from("match_events")
@@ -336,4 +371,208 @@ export async function getTeamStats(teamId: string): Promise<PlayerStats[]> {
   });
 
   return Array.from(statsMap.values());
+}
+
+// ============================================
+// ADMIN: ADD GOAL (+ update match score)
+// ============================================
+
+export async function addGoal(params: {
+  matchId: string;
+  playerId: string;
+  teamId: string;
+  minute: number;
+  assistPlayerId?: string;
+}): Promise<void> {
+  const { error: goalErr } = await supabase.from("match_events").insert({
+    match_id: params.matchId,
+    player_id: params.playerId,
+    team_id: params.teamId,
+    event_type: "goal",
+    minute: params.minute,
+  });
+  if (goalErr) throw goalErr;
+
+  if (params.assistPlayerId) {
+    const { error: assistErr } = await supabase.from("match_events").insert({
+      match_id: params.matchId,
+      player_id: params.assistPlayerId,
+      team_id: params.teamId,
+      event_type: "assist",
+      minute: params.minute,
+    });
+    if (assistErr) throw assistErr;
+  }
+
+  const match = await getMatchById(params.matchId);
+  if (!match) return;
+
+  const isHome = params.teamId === match.home_team_id;
+  const { error: updateErr } = await supabase
+    .from("matches")
+    .update({
+      home_score: isHome ? match.home_score + 1 : match.home_score,
+      away_score: isHome ? match.away_score : match.away_score + 1,
+    })
+    .eq("id", params.matchId);
+  if (updateErr) throw updateErr;
+}
+
+// ============================================
+// ADMIN: ADD CARD
+// ============================================
+
+export async function addCard(params: {
+  matchId: string;
+  playerId: string;
+  teamId: string;
+  cardType: "yellow_card" | "red_card";
+  minute: number;
+}): Promise<void> {
+  const { error } = await supabase.from("match_events").insert({
+    match_id: params.matchId,
+    player_id: params.playerId,
+    team_id: params.teamId,
+    event_type: params.cardType,
+    minute: params.minute,
+  });
+  if (error) throw error;
+}
+
+// ============================================
+// MVP NOMINATIONS (admin)
+// ============================================
+
+export async function getMvpNominations(matchId: string): Promise<MvpNomination[]> {
+  const { data, error } = await supabase
+    .from("mvp_nominations")
+    .select("*, player:players(*)")
+    .eq("match_id", matchId);
+
+  if (error) throw error;
+  return data as unknown as MvpNomination[];
+}
+
+export async function setMvpNominations(
+  matchId: string,
+  playerIds: string[]
+): Promise<void> {
+  const { error: delErr } = await supabase
+    .from("mvp_nominations")
+    .delete()
+    .eq("match_id", matchId);
+  if (delErr) throw delErr;
+
+  const inserts = playerIds.map((pid) => ({
+    match_id: matchId,
+    player_id: pid,
+  }));
+
+  const { error: insErr } = await supabase
+    .from("mvp_nominations")
+    .insert(inserts);
+  if (insErr) throw insErr;
+}
+
+// ============================================
+// MVP VOTES (users)
+// ============================================
+
+export async function castMvpVote(
+  matchId: string,
+  playerId: string,
+  voterUid: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("mvp_votes").insert({
+    match_id: matchId,
+    player_id: playerId,
+    voter_uid: voterUid,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Hai già votato per questa partita" };
+    }
+    return { error: error.message };
+  }
+  return { error: null };
+}
+
+export async function getMvpVotes(
+  matchId: string
+): Promise<{ player_id: string; count: number }[]> {
+  const { data, error } = await supabase
+    .from("mvp_votes")
+    .select("player_id")
+    .eq("match_id", matchId);
+
+  if (error) throw error;
+
+  const countMap = new Map<string, number>();
+  (data ?? []).forEach((v) => {
+    countMap.set(v.player_id, (countMap.get(v.player_id) ?? 0) + 1);
+  });
+
+  return Array.from(countMap.entries())
+    .map(([player_id, count]) => ({ player_id, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export async function hasVoted(matchId: string, voterUid: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("mvp_votes")
+    .select("id")
+    .eq("match_id", matchId)
+    .eq("voter_uid", voterUid)
+    .single();
+  return !!data;
+}
+
+// ============================================
+// FINALIZE MVP (called when match ends)
+// ============================================
+
+export async function finalizeMvp(matchId: string): Promise<void> {
+  const votes = await getMvpVotes(matchId);
+  if (votes.length === 0) return;
+
+  const winnerId = votes[0].player_id;
+
+  const { data: existing } = await supabase
+    .from("match_events")
+    .select("id")
+    .eq("match_id", matchId)
+    .eq("event_type", "mvp")
+    .single();
+  if (existing) return;
+
+  const { data: player } = await supabase
+    .from("players")
+    .select("team_id")
+    .eq("id", winnerId)
+    .single();
+  if (!player) return;
+
+  await supabase.from("match_events").insert({
+    match_id: matchId,
+    player_id: winnerId,
+    team_id: player.team_id,
+    event_type: "mvp",
+  });
+}
+
+// ============================================
+// PLAYERS BY MULTIPLE TEAMS
+// ============================================
+
+export async function getPlayersByTeams(teamIds: string[]): Promise<Player[]> {
+  const { data, error } = await supabase
+    .from("players")
+    .select("*")
+    .in("team_id", teamIds)
+    .order("team_id")
+    .order("last_name");
+
+  if (error) throw error;
+  return data as unknown as Player[];
 }

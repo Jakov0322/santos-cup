@@ -33,7 +33,6 @@ export interface Match {
   field_number: number;
   starts_at: string;
   created_at: string | null;
-  // Joined fields
   home_team?: Team;
   away_team?: Team;
 }
@@ -46,9 +45,24 @@ export interface MatchEvent {
   event_type: EventType;
   minute: number | null;
   created_at: string | null;
-  // Joined fields
   player?: Player;
   team?: Team;
+}
+
+export interface MvpNomination {
+  id: string;
+  match_id: string;
+  player_id: string;
+  created_at: string | null;
+  player?: Player;
+}
+
+export interface MvpVote {
+  id: string;
+  match_id: string;
+  player_id: string;
+  voter_uid: string;
+  created_at: string | null;
 }
 
 export interface StandingRow {

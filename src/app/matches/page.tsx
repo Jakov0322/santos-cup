@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { AppHeader } from "../components/layout/AppHeader";
 import { MatchCard } from "../components/tournament/MatchCard";
-import { getMatches } from "../lib/api";
+import { getMatches, applyAutoStatus } from "../lib/api";
 import { Match } from "../types/database";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 
@@ -17,7 +17,7 @@ export default function MatchesPage() {
 
   useEffect(() => {
     getMatches()
-      .then(setMatches)
+      .then((m) => setMatches(applyAutoStatus(m)))
       .finally(() => setLoading(false));
   }, []);
 

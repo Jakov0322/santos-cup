@@ -138,6 +138,78 @@ export type Database = {
         };
         Relationships: [];
       };
+
+      admin_users: {
+        Row: {
+          id: string;
+          auth_uid: string;
+          email: string;
+          name: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          auth_uid: string;
+          email: string;
+          name: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          auth_uid?: string;
+          email?: string;
+          name?: string;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      mvp_nominations: {
+        Row: {
+          id: string;
+          match_id: string;
+          player_id: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          player_id: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          player_id?: string;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      mvp_votes: {
+        Row: {
+          id: string;
+          match_id: string;
+          player_id: string;
+          voter_uid: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          player_id: string;
+          voter_uid: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          player_id?: string;
+          voter_uid?: string;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};

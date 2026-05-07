@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import { Toaster } from "sonner";
+import { AuthProvider } from "./components/auth/AuthProvider";
 
 export const viewport: Viewport = {
   themeColor: "#062B55",
@@ -34,8 +35,10 @@ export default function RootLayout({
   return (
     <html>
       <body>
-        <Toaster position="top-center" richColors />
-        {children}
+        <AuthProvider>
+          <Toaster position="top-center" richColors />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
