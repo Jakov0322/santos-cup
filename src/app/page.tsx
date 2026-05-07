@@ -1,15 +1,10 @@
 import { AppShell } from "./components/layout/AppShell";
-import { SantosCard } from "./components/ui/SantosCard";
-import { InstallBanner } from "./components/layout/InstallBanner";
 import { Button } from "./components/ui/Button";
-import { TournamentTicker } from "./components/layout/TournamentTicker";
 
 export default function HomePage() {
   return (
     <AppShell>
       <section className="space-y-5 pt-6">
-        <InstallBanner />
-        <TournamentTicker />
         <div className="overflow-hidden rounded-[32px] bg-gradient-to-br from-[#062B55] to-[#031A33] p-6 text-white shadow-2xl">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -22,7 +17,7 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-4 max-w-[220px] text-sm leading-6 text-cyan-100">
-                Torneo di calcio a 8 · 10:00–22:00 · 2 campi
+                Torneo di calcio a 8 · 12 squadre · 2 gironi
               </p>
             </div>
 
@@ -33,58 +28,39 @@ export default function HomePage() {
 
           <div className="mt-8 grid grid-cols-3 gap-3">
             <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-              <p className="text-2xl font-black">16</p>
-
-              <p className="text-xs text-cyan-100">
-                Squadre
-              </p>
+              <p className="text-2xl font-black">12</p>
+              <p className="text-xs text-cyan-100">Squadre</p>
             </div>
 
             <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
               <p className="text-2xl font-black">2</p>
-
-              <p className="text-xs text-cyan-100">
-                Campi
-              </p>
+              <p className="text-xs text-cyan-100">Gironi</p>
             </div>
 
             <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-              <p className="text-2xl font-black">12h</p>
-
-              <p className="text-xs text-cyan-100">
-                Evento
-              </p>
+              <p className="text-2xl font-black">2</p>
+              <p className="text-xs text-cyan-100">Campi</p>
             </div>
           </div>
         </div>
 
-        <SantosCard>
-          <h2 className="text-xl font-black text-[#062B55]">
-            Iscrivi la tua squadra
-          </h2>
+        <div className="grid gap-3">
+          <Button href="/matches" fullWidth>
+            Partite live
+          </Button>
 
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Registrazione ufficiale Santos Cup con pagamento,
-            accesso torneo, calendario live e statistiche.
-          </p>
+          <Button href="/bracket" variant="secondary" fullWidth>
+            Tabellone torneo
+          </Button>
 
-          <div className="mt-5 grid gap-3">
-<Button
-  href="/register"
-  fullWidth
->
-  Iscrivi squadra
-</Button>
+          <Button href="/teams" variant="secondary" fullWidth>
+            Squadre
+          </Button>
 
- <Button
-  href="/matches"
-  variant="secondary"
-  fullWidth
->
-  Segui il torneo
-</Button>
-          </div>
-        </SantosCard>
+          <Button href="/stats" variant="secondary" fullWidth>
+            Statistiche
+          </Button>
+        </div>
       </section>
     </AppShell>
   );

@@ -1,13 +1,4 @@
-type StandingRow = {
-  team: string;
-  played: number;
-  won: number;
-  draw: number;
-  lost: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  points: number;
-};
+import { StandingRow } from "@/app/types/database";
 
 type GroupStandingsProps = {
   groupName: string;
@@ -38,6 +29,7 @@ export function GroupStandings({
               <th className="px-2 py-3 text-center">P</th>
               <th className="px-2 py-3 text-center">GF</th>
               <th className="px-2 py-3 text-center">GS</th>
+              <th className="px-2 py-3 text-center">DR</th>
               <th className="px-4 py-3 text-center">Pt</th>
             </tr>
           </thead>
@@ -45,41 +37,30 @@ export function GroupStandings({
           <tbody>
             {rows.map((row, index) => (
               <tr
-                key={row.team}
-                className="border-b border-slate-100 text-sm"
+                key={row.team.id}
+                className={`border-b border-slate-100 text-sm ${
+                  index < 4 ? "bg-green-50/50" : ""
+                }`}
               >
                 <td className="px-4 py-4 font-bold text-[#062B55]">
                   {index + 1}
                 </td>
 
                 <td className="px-4 py-4 font-semibold text-[#062B55]">
-                  {row.team}
+                  <a href={`/teams/${row.team.id}`} className="hover:text-[#00C8E8]">
+                    {row.team.name}
+                  </a>
                 </td>
 
-                <td className="px-2 py-4 text-center">
-                  {row.played}
+                <td className="px-2 py-4 text-center">{row.played}</td>
+                <td className="px-2 py-4 text-center">{row.won}</td>
+                <td className="px-2 py-4 text-center">{row.draw}</td>
+                <td className="px-2 py-4 text-center">{row.lost}</td>
+                <td className="px-2 py-4 text-center">{row.goals_for}</td>
+                <td className="px-2 py-4 text-center">{row.goals_against}</td>
+                <td className="px-2 py-4 text-center font-bold">
+                  {row.goal_difference > 0 ? `+${row.goal_difference}` : row.goal_difference}
                 </td>
-
-                <td className="px-2 py-4 text-center">
-                  {row.won}
-                </td>
-
-                <td className="px-2 py-4 text-center">
-                  {row.draw}
-                </td>
-
-                <td className="px-2 py-4 text-center">
-                  {row.lost}
-                </td>
-
-                <td className="px-2 py-4 text-center">
-                  {row.goalsFor}
-                </td>
-
-                <td className="px-2 py-4 text-center">
-                  {row.goalsAgainst}
-                </td>
-
                 <td className="px-4 py-4 text-center font-black text-[#062B55]">
                   {row.points}
                 </td>

@@ -2,13 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import "./globals.css";
 
-import { StoreProvider } from "./components/layout/StoreProvider";
-import { AuthProvider } from "./components/layout/AuthProvider";
-import { EventProvider } from "./components/layout/EventProvider";
-
 import { Toaster } from "sonner";
-
-import { DevModeSwitch } from "./components/layout/DevModeSwitch";
 
 export const viewport: Viewport = {
   themeColor: "#062B55",
@@ -40,20 +34,8 @@ export default function RootLayout({
   return (
     <html>
       <body>
-        <StoreProvider>
-          <AuthProvider>
-            <EventProvider>
-              <Toaster
-                position="top-center"
-                richColors
-              />
-
-              <DevModeSwitch />
-
-              {children}
-            </EventProvider>
-          </AuthProvider>
-        </StoreProvider>
+        <Toaster position="top-center" richColors />
+        {children}
       </body>
     </html>
   );
