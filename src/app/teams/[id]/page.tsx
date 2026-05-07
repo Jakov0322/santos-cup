@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/app/components/layout/AppShell";
@@ -67,9 +68,9 @@ export default function TeamDetailPage() {
     return (
       <AppShell>
         <section className="space-y-5 pt-5">
-          <a href="/teams" className="text-sm font-bold text-[#00C8E8]">
+          <Link href="/teams" className="text-sm font-bold text-[#00C8E8]">
             ← Torna alle squadre
-          </a>
+          </Link>
           <div className="rounded-3xl bg-white p-6 text-center shadow-sm">
             <p className="font-black text-[#062B55]">Squadra non trovata</p>
           </div>
@@ -87,9 +88,9 @@ export default function TeamDetailPage() {
   return (
     <AppShell>
       <section className="space-y-5 pt-5">
-        <a href="/teams" className="text-sm font-bold text-[#00C8E8]">
+        <Link href="/teams" className="text-sm font-bold text-[#00C8E8]">
           ← Torna alle squadre
-        </a>
+        </Link>
 
         {/* Team Header */}
         <div className="overflow-hidden rounded-[32px] bg-gradient-to-br from-[#062B55] to-[#031A33] p-6 text-white shadow-2xl">

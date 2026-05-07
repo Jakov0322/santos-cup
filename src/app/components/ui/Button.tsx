@@ -1,4 +1,5 @@
 import { cn } from "@/app/lib/utils/cn";
+import Link from "next/link";
 import { LoadingSpinner } from "./LoadingSpinner";
 
 type ButtonVariant =
@@ -50,9 +51,9 @@ export function Button({
 
 if (href) {
   return (
-    <a href={href} className={styles}>
+    <Link href={href} className={styles}>
       {loading ? <LoadingSpinner /> : children}
-    </a>
+    </Link>
   );
 }
 

@@ -1,4 +1,5 @@
 import { Match } from "@/app/types/database";
+import Link from "next/link";
 import { LivePulse } from "../ui/LivePulse";
 
 type MatchCardProps = {
@@ -24,7 +25,7 @@ export function MatchCard({ match }: MatchCardProps) {
   });
 
   return (
-    <a href={`/matches/${match.id}`}>
+    <Link href={`/matches/${match.id}`}>
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-[#00C8E8]">
         <div className="mb-3 flex items-center justify-between">
           <div>
@@ -66,6 +67,6 @@ export function MatchCard({ match }: MatchCardProps) {
           </div>
         </div>
       </div>
-    </a>
+    </Link>
   );
 }

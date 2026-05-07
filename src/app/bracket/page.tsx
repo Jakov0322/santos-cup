@@ -7,6 +7,7 @@ import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 import { GroupStandings } from "../components/tournament/GroupStandings";
 import { getGroupStandings, getMatchesByPhase, getMatches, applyAutoStatus, generateTournamentSchedule } from "../lib/api";
 import { StandingRow, Match } from "../types/database";
+import Link from "next/link";
 import { useAuth } from "../components/auth/AuthProvider";
 import { useTournamentSync } from "../lib/hooks/useTournamentSync";
 import { toast } from "sonner";
@@ -255,7 +256,7 @@ function BracketSlot({
       : "border-slate-200";
 
   return (
-    <a href={`/matches/${match.id}`} className="group">
+    <Link href={`/matches/${match.id}`} className="group">
       <div
         className={`flex flex-col overflow-hidden rounded-xl border-2 shadow-sm transition group-hover:border-[#00C8E8] ${borderColor} ${
           isFinal ? "w-44" : "w-36"
@@ -328,7 +329,7 @@ function BracketSlot({
           </p>
         </div>
       )}
-    </a>
+    </Link>
   );
 }
 

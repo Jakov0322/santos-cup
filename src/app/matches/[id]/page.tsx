@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import Link from "next/link";
 import { useAuth } from "@/app/components/auth/AuthProvider";
 import { AppShell } from "@/app/components/layout/AppShell";
 import { LivePulse } from "@/app/components/ui/LivePulse";
@@ -94,6 +95,7 @@ export default function MatchDetailsPage() {
   }, [params.id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
@@ -168,9 +170,9 @@ export default function MatchDetailsPage() {
     return (
       <AppShell>
         <section className="space-y-5 pt-5">
-          <a href="/matches" className="text-sm font-bold text-[#00C8E8]">
+          <Link href="/matches" className="text-sm font-bold text-[#00C8E8]">
             ← Torna alle partite
-          </a>
+          </Link>
           <div className="rounded-3xl bg-white p-6 text-center shadow-sm">
             <p className="font-black text-[#062B55]">Partita non trovata</p>
           </div>
@@ -218,9 +220,9 @@ export default function MatchDetailsPage() {
   return (
     <AppShell>
       <section className="space-y-5 pt-5">
-        <a href="/matches" className="text-sm font-bold text-[#00C8E8]">
+        <Link href="/matches" className="text-sm font-bold text-[#00C8E8]">
           ← Torna alle partite
-        </a>
+        </Link>
 
         {/* Scoreboard */}
         <div className="overflow-hidden rounded-[32px] bg-gradient-to-br from-[#062B55] to-[#031A33] p-6 text-white shadow-2xl">

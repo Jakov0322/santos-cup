@@ -1,5 +1,5 @@
 import { supabase } from "@/app/lib/supabase/client";
-import { Team, Player, Match, MatchEvent, MvpNomination, MvpVote, StandingRow, PlayerStats } from "@/app/types/database";
+import { Team, Player, Match, MatchEvent, MvpNomination, StandingRow, PlayerStats } from "@/app/types/database";
 
 const MATCH_DURATION_MINUTES = 30;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "../components/layout/AppShell";
 import { AppHeader } from "../components/layout/AppHeader";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
@@ -76,7 +77,7 @@ function TeamListItem({
 }) {
   return (
     <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-[#00C8E8]">
-      <a href={`/teams/${team.id}`} className="flex flex-1 items-center gap-4">
+      <Link href={`/teams/${team.id}`} className="flex flex-1 items-center gap-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#062B55] text-lg font-black text-white">
           {team.name.charAt(0)}
         </div>
@@ -84,7 +85,7 @@ function TeamListItem({
           <p className="truncate font-bold text-[#062B55]">{team.name}</p>
           <p className="text-sm text-slate-500">Girone {team.group_name}</p>
         </div>
-      </a>
+      </Link>
       <button
         onClick={(e) => {
           e.preventDefault();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 const TEAMS_KEY = "santos_fav_teams";
 const PLAYERS_KEY = "santos_fav_players";
@@ -19,13 +19,8 @@ function writeList(key: string, list: string[]) {
 }
 
 export function useFavourites() {
-  const [favouriteTeams, setFavouriteTeams] = useState<string[]>([]);
-  const [favouritePlayers, setFavouritePlayers] = useState<string[]>([]);
-
-  useEffect(() => {
-    setFavouriteTeams(readList(TEAMS_KEY));
-    setFavouritePlayers(readList(PLAYERS_KEY));
-  }, []);
+  const [favouriteTeams, setFavouriteTeams] = useState<string[]>(() => readList(TEAMS_KEY));
+  const [favouritePlayers, setFavouritePlayers] = useState<string[]>(() => readList(PLAYERS_KEY));
 
   const toggleTeam = useCallback((id: string) => {
     setFavouriteTeams((prev) => {

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Match, StandingRow } from "@/app/types/database";
 
 type GroupStandingsProps = {
@@ -75,9 +76,9 @@ export function GroupStandings({
 
                   <td className="px-4 py-4 font-semibold text-[#062B55]">
                     <div className="flex items-center gap-2">
-                      <a href={`/teams/${row.team.id}`} className="hover:text-[#00C8E8]">
+                      <Link href={`/teams/${row.team.id}`} className="hover:text-[#00C8E8]">
                         {row.team.name}
-                      </a>
+                      </Link>
                       {badge && (
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${badge.color}`}>
                           {badge.score}
