@@ -7,6 +7,7 @@ import { MatchCard } from "../components/tournament/MatchCard";
 import { getMatches, applyAutoStatus } from "../lib/api";
 import { Match } from "../types/database";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import { useTournamentSync } from "../lib/hooks/useTournamentSync";
 
 type Filter = "all" | "live" | "scheduled" | "finished";
 
@@ -14,6 +15,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  useTournamentSync();
 
   useEffect(() => {
     getMatches()

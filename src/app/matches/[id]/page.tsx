@@ -20,6 +20,7 @@ import {
   computeMatchStatus,
 } from "@/app/lib/api";
 import { Match, MatchEvent, Player, MvpNomination } from "@/app/types/database";
+import { useTournamentSync } from "@/app/lib/hooks/useTournamentSync";
 import { toast } from "sonner";
 
 function getVoterUid(): string {
@@ -35,6 +36,7 @@ function getVoterUid(): string {
 export default function MatchDetailsPage() {
   const params = useParams();
   const { isAdmin } = useAuth();
+  useTournamentSync();
   const [match, setMatch] = useState<Match | null>(null);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -206,6 +208,12 @@ export default function MatchDetailsPage() {
         : [];
 
   const isLive = match.status === "live";
+  // Knockout draw needing resolution: match time ended but scores tied
+  const needsResolution =
+    match.phase !== "group" &&
+    match.status === "finished" &&
+    match.home_score === match.away_score;
+  const showAdminTools = isAdmin && (isLive || needsResolution);
 
   return (
     <AppShell>
@@ -256,21 +264,28 @@ export default function MatchDetailsPage() {
           </div>
         </div>
 
-        {/* ===== ADMIN: 2 buttons (only when logged + live) ===== */}
-        {isAdmin && isLive && (
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowGoalModal(true)}
-              className="flex-1 rounded-2xl bg-[#00C8E8] px-4 py-3 text-sm font-black text-[#031A33]"
-            >
-              ⚽ Aggiungi Gol
-            </button>
-            <button
-              onClick={() => setShowMvpModal(true)}
-              className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#062B55]"
-            >
-              ⭐ Seleziona MVP
-            </button>
+        {/* ===== ADMIN CONTROLS ===== */}
+        {showAdminTools && (
+          <div className="space-y-3">
+            {needsResolution && (
+              <div className="rounded-2xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-center text-sm font-bold text-yellow-800">
+                ⚠️ Pareggio nei tempi regolamentari — aggiungi gol per i rigori/supplementari
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowGoalModal(true)}
+                className="flex-1 rounded-2xl bg-[#00C8E8] px-4 py-3 text-sm font-black text-[#031A33]"
+              >
+                ⚽ Aggiungi Gol
+              </button>
+              <button
+                onClick={() => setShowMvpModal(true)}
+                className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#062B55]"
+              >
+                ⭐ Seleziona MVP
+              </button>
+            </div>
           </div>
         )}
 

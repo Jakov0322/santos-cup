@@ -18,6 +18,7 @@ export interface Player {
   last_name: string;
   shirt_number: number;
   position: PlayerPosition;
+  is_captain: boolean;
   created_at: string | null;
 }
 

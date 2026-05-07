@@ -79,6 +79,9 @@ export default function StatsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold text-[#062B55]">
                       {stat.player.first_name} {stat.player.last_name}
+                      {stat.player.is_captain && (
+                        <span className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-yellow-400 text-[10px] font-black text-yellow-900">C</span>
+                      )}
                     </p>
                     <p className="truncate text-sm text-slate-500">
                       {stat.team.name}

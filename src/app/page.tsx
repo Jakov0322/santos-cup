@@ -6,12 +6,14 @@ import { MatchCard } from "./components/tournament/MatchCard";
 import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 import { getMatches, applyAutoStatus } from "./lib/api";
 import { useFavourites } from "./lib/hooks/useFavourites";
+import { useTournamentSync } from "./lib/hooks/useTournamentSync";
 import { Match } from "./types/database";
 
 export default function HomePage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const { favouriteTeams, hasFavourites } = useFavourites();
+  useTournamentSync();
 
   useEffect(() => {
     getMatches()

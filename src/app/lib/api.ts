@@ -183,7 +183,8 @@ export async function getMatchEvents(matchId: string): Promise<MatchEvent[]> {
 
 export async function getGroupStandings(groupName: string): Promise<StandingRow[]> {
   const teams = await getTeamsByGroup(groupName);
-  const matches = await getMatchesByGroup(groupName);
+  const rawMatches = await getMatchesByGroup(groupName);
+  const matches = applyAutoStatus(rawMatches);
 
   const standingsMap = new Map<string, StandingRow>();
 
@@ -559,6 +560,339 @@ export async function finalizeMvp(matchId: string): Promise<void> {
     team_id: player.team_id,
     event_type: "mvp",
   });
+}
+
+// ============================================
+// ADMIN: FINISH MATCH (persist status + finalize MVP)
+// ============================================
+
+export async function finishMatch(matchId: string): Promise<void> {
+  const { error } = await supabase
+    .from("matches")
+    .update({ status: "finished" })
+    .eq("id", matchId);
+  if (error) throw error;
+
+  await finalizeMvp(matchId);
+}
+
+// ============================================
+// ROUND-ROBIN GENERATOR
+// ============================================
+
+function generateRoundRobin(teamIds: string[]): [string, string][][] {
+  const t = [...teamIds];
+  if (t.length % 2 !== 0) t.push(""); // BYE placeholder
+
+  const n = t.length;
+  const rounds: [string, string][][] = [];
+
+  for (let r = 0; r < n - 1; r++) {
+    const round: [string, string][] = [];
+    for (let i = 0; i < n / 2; i++) {
+      const home = t[i];
+      const away = t[n - 1 - i];
+      if (home && away) round.push([home, away]);
+    }
+    rounds.push(round);
+    // Rotate: fix first, rotate rest
+    const last = t.pop()!;
+    t.splice(1, 0, last);
+  }
+
+  return rounds;
+}
+
+// ============================================
+// GENERATE FULL TOURNAMENT SCHEDULE
+// ============================================
+
+export async function generateTournamentSchedule(
+  date: string
+): Promise<void> {
+  // Check if matches already exist
+  const { count } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true });
+  if (count && count > 0) throw new Error("Il calendario esiste già");
+
+  const teamsA = await getTeamsByGroup("A");
+  const teamsB = await getTeamsByGroup("B");
+
+  if (teamsA.length < 2 || teamsB.length < 2)
+    throw new Error("Servono almeno 2 squadre per girone");
+
+  const roundsA = generateRoundRobin(teamsA.map((t) => t.id));
+  const roundsB = generateRoundRobin(teamsB.map((t) => t.id));
+
+  const SLOT_MS = 45 * 60 * 1000; // 30 min match + 15 min break
+  const startMs = new Date(`${date}T10:00:00`).getTime();
+  let slotIndex = 0;
+
+  const inserts: {
+    home_team_id: string;
+    away_team_id: string;
+    phase: string;
+    group_name: string;
+    field_number: number;
+    starts_at: string;
+    status: string;
+    home_score: number;
+    away_score: number;
+  }[] = [];
+
+  // Interleave group rounds: A1, B1, A2, B2, ...
+  const maxRounds = Math.max(roundsA.length, roundsB.length);
+
+  for (let r = 0; r < maxRounds; r++) {
+    // Group A round
+    if (r < roundsA.length) {
+      const round = roundsA[r];
+      for (let i = 0; i < round.length; i += 2) {
+        const slotTime = new Date(startMs + slotIndex * SLOT_MS).toISOString();
+        const pair = round.slice(i, i + 2);
+        pair.forEach(([home, away], fi) => {
+          inserts.push({
+            home_team_id: home,
+            away_team_id: away,
+            phase: "group",
+            group_name: "A",
+            field_number: fi + 1,
+            starts_at: slotTime,
+            status: "scheduled",
+            home_score: 0,
+            away_score: 0,
+          });
+        });
+        slotIndex++;
+      }
+    }
+    // Group B round
+    if (r < roundsB.length) {
+      const round = roundsB[r];
+      for (let i = 0; i < round.length; i += 2) {
+        const slotTime = new Date(startMs + slotIndex * SLOT_MS).toISOString();
+        const pair = round.slice(i, i + 2);
+        pair.forEach(([home, away], fi) => {
+          inserts.push({
+            home_team_id: home,
+            away_team_id: away,
+            phase: "group",
+            group_name: "B",
+            field_number: fi + 1,
+            starts_at: slotTime,
+            status: "scheduled",
+            home_score: 0,
+            away_score: 0,
+          });
+        });
+        slotIndex++;
+      }
+    }
+  }
+
+  const { error } = await supabase.from("matches").insert(inserts);
+  if (error) throw error;
+}
+
+// ============================================
+// AUTO-FINALIZE ENDED MATCHES
+// ============================================
+
+export async function autoFinalizeMatches(): Promise<void> {
+  const { data: matches, error } = await supabase
+    .from("matches")
+    .select("*")
+    .neq("status", "finished");
+  if (error || !matches) return;
+
+  const now = Date.now();
+  const endMs = MATCH_DURATION_MINUTES * 60 * 1000;
+
+  for (const m of matches) {
+    const end = new Date(m.starts_at).getTime() + endMs;
+    if (now < end) continue; // not ended yet
+
+    // For knockout matches with a draw, don't auto-finalize
+    // (admin must resolve the draw first by adding goals)
+    if (m.phase !== "group" && m.home_score === m.away_score) continue;
+
+    try {
+      await finishMatch(m.id);
+    } catch {
+      // RLS may reject if not admin — that's OK
+    }
+  }
+}
+
+// ============================================
+// AUTO-GENERATE KNOCKOUT ROUNDS
+// ============================================
+
+async function generateQuarterfinals(): Promise<void> {
+  const standingsA = await getGroupStandings("A");
+  const standingsB = await getGroupStandings("B");
+
+  if (standingsA.length < 4 || standingsB.length < 4) return;
+
+  const a1 = standingsA[0].team.id;
+  const a2 = standingsA[1].team.id;
+  const a3 = standingsA[2].team.id;
+  const a4 = standingsA[3].team.id;
+  const b1 = standingsB[0].team.id;
+  const b2 = standingsB[1].team.id;
+  const b3 = standingsB[2].team.id;
+  const b4 = standingsB[3].team.id;
+
+  // Pairings: 1A vs 4B, 1B vs 4A, 2A vs 3B, 2B vs 3A
+  const pairings: [string, string][] = [
+    [a1, b4],
+    [b1, a4],
+    [a2, b3],
+    [b2, a3],
+  ];
+
+  // Find last group match time to schedule after
+  const { data: lastGroup } = await supabase
+    .from("matches")
+    .select("starts_at")
+    .eq("phase", "group")
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  const SLOT_MS = 45 * 60 * 1000;
+  const baseTime = lastGroup
+    ? new Date(lastGroup.starts_at).getTime() + SLOT_MS
+    : Date.now();
+
+  const inserts = pairings.map(([home, away], i) => ({
+    home_team_id: home,
+    away_team_id: away,
+    phase: "quarter",
+    group_name: null as string | null,
+    field_number: (i % 2) + 1,
+    starts_at: new Date(baseTime + Math.floor(i / 2) * SLOT_MS).toISOString(),
+    status: "scheduled",
+    home_score: 0,
+    away_score: 0,
+  }));
+
+  const { error } = await supabase.from("matches").insert(inserts);
+  if (error) throw error;
+}
+
+async function generateSemifinals(qfMatches: Match[]): Promise<void> {
+  // QF order: QF1 winner vs QF3 winner, QF2 winner vs QF4 winner
+  const sorted = [...qfMatches].sort(
+    (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+  );
+  const winners = sorted.map((m) =>
+    m.home_score > m.away_score ? m.home_team_id : m.away_team_id
+  );
+  if (winners.length < 4) return;
+
+  const pairings: [string, string][] = [
+    [winners[0], winners[2]],
+    [winners[1], winners[3]],
+  ];
+
+  const SLOT_MS = 45 * 60 * 1000;
+  const lastQfTime = Math.max(
+    ...sorted.map((m) => new Date(m.starts_at).getTime())
+  );
+  const baseTime = lastQfTime + SLOT_MS;
+
+  const inserts = pairings.map(([home, away], i) => ({
+    home_team_id: home,
+    away_team_id: away,
+    phase: "semi",
+    group_name: null as string | null,
+    field_number: i + 1,
+    starts_at: new Date(baseTime).toISOString(),
+    status: "scheduled",
+    home_score: 0,
+    away_score: 0,
+  }));
+
+  const { error } = await supabase.from("matches").insert(inserts);
+  if (error) throw error;
+}
+
+async function generateFinal(sfMatches: Match[]): Promise<void> {
+  const sorted = [...sfMatches].sort(
+    (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+  );
+  const winners = sorted.map((m) =>
+    m.home_score > m.away_score ? m.home_team_id : m.away_team_id
+  );
+  if (winners.length < 2) return;
+
+  const SLOT_MS = 45 * 60 * 1000;
+  const lastSfTime = Math.max(
+    ...sorted.map((m) => new Date(m.starts_at).getTime())
+  );
+
+  const { error } = await supabase.from("matches").insert({
+    home_team_id: winners[0],
+    away_team_id: winners[1],
+    phase: "final",
+    group_name: null,
+    field_number: 1,
+    starts_at: new Date(lastSfTime + SLOT_MS).toISOString(),
+    status: "scheduled",
+    home_score: 0,
+    away_score: 0,
+  });
+  if (error) throw error;
+}
+
+export async function autoGenerateNextRound(): Promise<void> {
+  const allMatches = await getMatches();
+  const withStatus = applyAutoStatus(allMatches);
+
+  const groupMatches = withStatus.filter((m) => m.phase === "group");
+  const qfMatches = withStatus.filter((m) => m.phase === "quarter");
+  const sfMatches = withStatus.filter((m) => m.phase === "semi");
+  const finalMatches = withStatus.filter((m) => m.phase === "final");
+
+  // Groups done → generate quarterfinals
+  if (
+    groupMatches.length > 0 &&
+    groupMatches.every((m) => m.status === "finished") &&
+    qfMatches.length === 0
+  ) {
+    await generateQuarterfinals();
+    return;
+  }
+
+  // QF done → generate semifinals
+  if (
+    qfMatches.length === 4 &&
+    qfMatches.every((m) => m.status === "finished") &&
+    sfMatches.length === 0
+  ) {
+    await generateSemifinals(qfMatches);
+    return;
+  }
+
+  // SF done → generate final
+  if (
+    sfMatches.length === 2 &&
+    sfMatches.every((m) => m.status === "finished") &&
+    finalMatches.length === 0
+  ) {
+    await generateFinal(sfMatches);
+  }
+}
+
+// ============================================
+// SYNC TOURNAMENT (admin calls this on page load)
+// ============================================
+
+export async function syncTournament(): Promise<void> {
+  await autoFinalizeMatches();
+  await autoGenerateNextRound();
 }
 
 // ============================================

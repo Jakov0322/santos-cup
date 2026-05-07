@@ -5,37 +5,71 @@ import { AppShell } from "../components/layout/AppShell";
 import { AppHeader } from "../components/layout/AppHeader";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 import { GroupStandings } from "../components/tournament/GroupStandings";
-import { getGroupStandings, getMatchesByPhase, getMatches, applyAutoStatus } from "../lib/api";
+import { getGroupStandings, getMatchesByPhase, getMatches, applyAutoStatus, generateTournamentSchedule } from "../lib/api";
 import { StandingRow, Match } from "../types/database";
+import { useAuth } from "../components/auth/AuthProvider";
+import { useTournamentSync } from "../lib/hooks/useTournamentSync";
+import { toast } from "sonner";
 
 type Tab = "gironi" | "fasi";
 
 export default function BracketPage() {
+  const { isAdmin } = useAuth();
+  useTournamentSync();
+
   const [groupA, setGroupA] = useState<StandingRow[]>([]);
   const [groupB, setGroupB] = useState<StandingRow[]>([]);
   const [knockoutMatches, setKnockoutMatches] = useState<Match[]>([]);
   const [liveMatches, setLiveMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("gironi");
+  const [hasMatches, setHasMatches] = useState(true);
+
+  // Schedule generation
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const [a, b, quarters, semis, finals, allMatches] = await Promise.all([
+        getGroupStandings("A"),
+        getGroupStandings("B"),
+        getMatchesByPhase("quarter"),
+        getMatchesByPhase("semi"),
+        getMatchesByPhase("final"),
+        getMatches(),
+      ]);
+      setGroupA(a);
+      setGroupB(b);
+      const all = applyAutoStatus([...quarters, ...semis, ...finals]);
+      setKnockoutMatches(all);
+      setLiveMatches(applyAutoStatus(allMatches).filter((m) => m.status === "live"));
+      setHasMatches(allMatches.length > 0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    Promise.all([
-      getGroupStandings("A"),
-      getGroupStandings("B"),
-      getMatchesByPhase("quarter"),
-      getMatchesByPhase("semi"),
-      getMatchesByPhase("final"),
-      getMatches(),
-    ])
-      .then(([a, b, quarters, semis, finals, allMatches]) => {
-        setGroupA(a);
-        setGroupB(b);
-        const all = applyAutoStatus([...quarters, ...semis, ...finals]);
-        setKnockoutMatches(all);
-        setLiveMatches(applyAutoStatus(allMatches).filter((m) => m.status === "live"));
-      })
-      .finally(() => setLoading(false));
+    loadData();
   }, []);
+
+  async function handleGenerate() {
+    if (!scheduleDate) {
+      toast.error("Seleziona una data");
+      return;
+    }
+    setGenerating(true);
+    try {
+      await generateTournamentSchedule(scheduleDate);
+      toast.success("Calendario generato!");
+      setLoading(true);
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Errore nella generazione");
+    }
+    setGenerating(false);
+  }
 
   if (loading) {
     return (
@@ -54,6 +88,32 @@ export default function BracketPage() {
   return (
     <AppShell>
       <AppHeader title="Tabellone" subtitle="Gironi e fase finale" />
+
+      {/* Admin: Generate schedule (only if no matches exist) */}
+      {isAdmin && !hasMatches && !loading && (
+        <div className="mb-6 rounded-3xl border-2 border-dashed border-[#00C8E8] bg-cyan-50 p-5">
+          <h3 className="text-lg font-black text-[#062B55]">📅 Genera Calendario</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Seleziona la data del torneo. Le partite verranno create automaticamente
+            (gironi round-robin, 2 partite alla volta, 30 min + 15 min pausa).
+          </p>
+          <div className="mt-4 flex gap-3">
+            <input
+              type="date"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            />
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="rounded-2xl bg-[#062B55] px-6 py-3 text-sm font-black text-white disabled:opacity-50"
+            >
+              {generating ? "Genero..." : "Genera"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="mb-6 flex gap-2">
@@ -76,14 +136,6 @@ export default function BracketPage() {
         <section className="space-y-6">
           <GroupStandings groupName="Girone A" rows={groupA} liveMatches={liveMatches} />
           <GroupStandings groupName="Girone B" rows={groupB} liveMatches={liveMatches} />
-
-          <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-4">
-            <p className="text-sm font-semibold leading-6 text-[#062B55]">
-              Le prime 4 di ogni girone accedono ai quarti di finale.
-              Gli incroci sono: 1ª Girone A vs 4ª Girone B, 2ª A vs 3ª B,
-              1ª B vs 4ª A, 2ª B vs 3ª A.
-            </p>
-          </div>
         </section>
       )}
 
@@ -102,20 +154,6 @@ function BracketTree({ matches }: { matches: Match[] }) {
   const quarters = matches.filter((m) => m.phase === "quarter");
   const semis = matches.filter((m) => m.phase === "semi");
   const finals = matches.filter((m) => m.phase === "final");
-
-  if (quarters.length === 0 && semis.length === 0 && finals.length === 0) {
-    return (
-      <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-        <p className="text-3xl">🏆</p>
-        <p className="mt-3 font-black text-[#062B55]">
-          Fase finale non ancora definita
-        </p>
-        <p className="mt-1 text-sm text-slate-500">
-          I quarti verranno generati al termine della fase a gironi
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="overflow-x-auto pb-4">
@@ -185,17 +223,17 @@ function BracketSlot({
   if (!match) {
     return (
       <div
-        className={`flex flex-col overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 ${
+        className={`flex flex-col overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 ${
           isFinal ? "w-44" : "w-36"
         }`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
-          <span className="text-xs text-slate-400">TBD</span>
-          <span className="text-xs text-slate-300">-</span>
+          <span className="text-xs font-bold text-slate-300">-</span>
+          <span className="text-sm font-black text-slate-300">-</span>
         </div>
         <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-xs text-slate-400">TBD</span>
-          <span className="text-xs text-slate-300">-</span>
+          <span className="text-xs font-bold text-slate-300">-</span>
+          <span className="text-sm font-black text-slate-300">-</span>
         </div>
       </div>
     );
