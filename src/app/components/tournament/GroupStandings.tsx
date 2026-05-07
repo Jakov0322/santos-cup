@@ -19,7 +19,6 @@ function getLiveBadge(
     const awayScore = m.away_score;
     const teamScore = isHome ? homeScore : awayScore;
     const oppScore = isHome ? awayScore : homeScore;
-    const oppName = isHome ? (m.away_team?.name ?? "TBD") : (m.home_team?.name ?? "TBD");
 
     let color = "bg-yellow-400 text-yellow-900"; // draw
     if (teamScore > oppScore) color = "bg-green-500 text-white";
@@ -81,7 +80,7 @@ export function GroupStandings({
                       </a>
                       {badge && (
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${badge.color}`}>
-                          🔴 {badge.score}
+                          {badge.score}
                         </span>
                       )}
                     </div>
